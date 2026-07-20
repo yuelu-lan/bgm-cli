@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -9,4 +10,7 @@ export default defineConfig({
   skipNodeModulesBundle: true,
   clean: true,
   sourcemap: false,
+  define: {
+    'process.env.PACKAGE_VERSION': JSON.stringify(pkg.version),
+  },
 });

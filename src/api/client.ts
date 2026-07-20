@@ -41,7 +41,8 @@ export interface SearchParams {
   offset?: number;
 }
 
-const DEFAULT_UA = 'bgm-cli/0.1.0 (https://github.com/yuelu-lan/bgm-cli)';
+const PKG_VERSION = process.env.PACKAGE_VERSION ?? '0.0.0-dev';
+const DEFAULT_UA = `bgm-cli/${PKG_VERSION} (https://github.com/yuelu-lan/bgm-cli)`;
 const DEFAULT_BASE = 'https://api.bgm.tv/v0';
 const DEFAULT_TIMEOUT = 10_000;
 

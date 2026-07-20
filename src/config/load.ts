@@ -26,7 +26,7 @@ export class ConfigError extends Error {
 function resolveConfigPath(overridePath?: string): string {
   if (overridePath) return overridePath;
   if (process.env.XDG_CONFIG_HOME) {
-    return join(process.env.XDG_CONFIG_HOME, 'bgm-cli');
+    return join(process.env.XDG_CONFIG_HOME, 'bgm-cli-nodejs');
   }
   return paths.config;
 }
@@ -48,9 +48,14 @@ export function loadConfig(overridePath?: string): ResolvedConfig {
 
 export function saveConfig(partial: ConfigFile, overridePath?: string): void {
   const configPath = resolveConfigPath(overridePath);
-  const existing = existsSync(configPath)
-    ? (JSON.parse(readFileSync(configPath, 'utf8')) as ConfigFile)
-    : {};
+  let existing: ConfigFile = {};
+  if (existsSync(configPath)) {
+    try {
+      existing = JSON.parse(readFileSync(configPath, 'utf8')) as ConfigFile;
+    } catch {
+      throw new ConfigError('配置文件解析失败');
+    }
+  }
   const merged = { ...existing, ...partial };
   mkdirSync(dirname(configPath), { recursive: true });
   writeFileSync(configPath, JSON.stringify(merged, null, 2));
