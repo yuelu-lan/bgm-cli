@@ -72,7 +72,7 @@ describe('saveConfig', () => {
 
 describe('maskToken', () => {
   it('masks middle of long token', () => {
-    expect(maskToken('abcdefghijklmnop')).toBe('abcd****ijkl');
+    expect(maskToken('abcdefghijklmnop')).toBe('abcd****mnop');
   });
   it('fully masks short token', () => {
     expect(maskToken('abc')).toBe('****');
