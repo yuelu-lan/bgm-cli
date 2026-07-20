@@ -100,10 +100,13 @@ export function createClient(opts: ClientOptions = {}) {
         keyword: p.keyword,
         sort: p.sort,
         filter: p.filter,
-        ...(p.limit !== undefined ? { limit: p.limit } : {}),
-        ...(p.offset !== undefined ? { offset: p.offset } : {}),
       };
-      return (await request('/search/subjects', {
+      const params = new URLSearchParams();
+      if (p.limit !== undefined) params.set('limit', String(p.limit));
+      if (p.offset !== undefined) params.set('offset', String(p.offset));
+      const qs = params.toString();
+      const path = qs ? `/search/subjects?${qs}` : '/search/subjects';
+      return (await request(path, {
         method: 'POST',
         body: JSON.stringify(body),
       })) as SearchResult;
