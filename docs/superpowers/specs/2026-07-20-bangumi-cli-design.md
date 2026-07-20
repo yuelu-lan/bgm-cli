@@ -1,8 +1,9 @@
 # bangumi CLI 设计文档
 
 - 日期：2026-07-20
-- 技术栈：TypeScript + commander
+- 技术栈：TypeScript + commander + tsup（ESM）
 - 包管理：pnpm，发布到 npm
+- Node 基线：`>=20`（原生 fetch / AbortController）
 
 ## 背景与目标
 
@@ -21,9 +22,12 @@
 
 | 维度 | 决策 |
 |---|---|
+| 构建 | tsup 打包成单文件 ESM（`"type": "module"`），`bin` 指向 `dist/index.js`；commander 作为 devDep（打包进 bundle，运行时不依赖） |
 | API 封装 | `openapi-typescript` 从 `open-api/v0.yaml` 生成类型，运行时手写 fetch 封装 |
 | 认证 | 预留 token 配置（XDG 配置文件 + 环境变量），MVP 公开接口匿名可调 |
+| 配置存储 | `env-paths` 解析 XDG 跨平台路径，读写仍手写 |
 | 输出格式 | `--format json\|text\|markdown`，默认 text |
+| CJK 对齐 | text 表格用 `string-width` 计算显示宽度（全角字符对齐） |
 | 交互模式 | 纯参数式，不引入交互选择 |
 | 分发 | pnpm 管理，发布到 npm，`npm i -g` 安装 |
 
@@ -42,13 +46,14 @@ src/
     export.ts         # bgm export <subcommand> 数据导出
     config.ts         # bgm config get/set
   api/
-    client.ts         # fetch 封装：baseURL、UA、token 注入、错误归一化、分页
+    client.ts         # fetch 封装：baseURL、UA、token 注入、超时、错误归一化、分页
     types.ts          # openapi-typescript 从 v0.yaml 生成（不手改）
   format/
     renderer.ts       # 三个渲染器 json/text/markdown，统一接口
     types.ts          # Renderable 描述符
   config/
-    load.ts           # XDG 配置文件 + 环境变量合并（env 优先）
+    load.ts           # env-paths 解析路径 + 配置文件读写 + 环境变量合并（env 优先）
+  __tests__/          # 测试目录（与命令/模块并列的分层测试）
 ```
 
 ### 依赖方向（单向，无环）
@@ -135,17 +140,18 @@ const createClient = (opts: ClientOptions) => ({
 - `baseURL`：`https://api.bgm.tv/v0`
 - `User-Agent`：固定 `bgm-cli/<version> (https://github.com/<owner>/bgm-cli)`，`<version>` 取 package.json 版本，`<owner>` 为发布者 GitHub 账号（构建时注入）；遵循 bangumi UA 建议
 - `Authorization`：有 token 时注入 `Bearer <token>`
+- **超时**：`fetchWithTimeout` 用 `AbortController`，默认 10s，超时归一化为 `ApiError { status: 0, message: '请求超时' }`
 - 响应非 2xx → 抛 `ApiError { status, code?, message }`，由 command 层捕获转 stderr
 
 ### format/renderer.ts
 
 - `json`：`JSON.stringify({ title, meta, rows }, null, 2)`
-- `text`：等宽对齐表格（轻量自实现，不引额外依赖）
+- `text`：等宽对齐表格，列宽用 `string-width` 计算显示宽度（正确处理中日韩全角字符与 emoji）
 - `markdown`：标准 markdown 表格
 
 ### config/load.ts
 
-- 读取顺序：`XDG_CONFIG_HOME/bgm-cli/config.json` → `~/.config/bgm-cli/config.json` fallback
+- 路径解析：`env-paths('bgm-cli', { type: 'config' })`，跨平台处理 XDG / Windows / macOS 标准目录
 - env 覆盖：`BGM_ACCESS_TOKEN` 覆盖 `token`，`BGM_API_BASE` 覆盖 baseURL（测试用）
 - 配置文件 schema（JSON）：
   ```json
@@ -195,9 +201,11 @@ const createClient = (opts: ClientOptions) => ({
 
 ### 工具链
 
+- 构建：`tsup`（ESM 单文件打包）
 - 测试框架：`vitest`
 - HTTP mock：`msw`
 - 类型生成脚本：`pnpm gen:types`（`openapi-typescript` 读取 `open-api/v0.yaml`），类型漂移靠 CI 跑 `gen:types && git diff --exit-code` 守护
+- npm scripts：`build`(tsup) / `dev`(tsup --watch) / `test`(vitest run) / `typecheck`(tsc --noEmit) / `gen:types`
 
 ### 不测的（YAGNI）
 
