@@ -59,3 +59,32 @@ describe('render markdown', () => {
     expect(out).toContain('a\\|b');
   });
 });
+
+describe('render summary', () => {
+  const r: Renderable = {
+    columns: ['id'],
+    rows: [{ id: 1 }],
+    summary: '这是一段长简介。',
+  };
+
+  it('text appends summary after table', () => {
+    const out = render(r, 'text');
+    const lines = out.split('\n');
+    expect(lines[lines.length - 1]).toBe('这是一段长简介。');
+  });
+
+  it('markdown appends summary after table', () => {
+    const out = render(r, 'markdown');
+    expect(out.endsWith('这是一段长简介。')).toBe(true);
+  });
+
+  it('json includes summary field', () => {
+    const out = JSON.parse(render(r, 'json'));
+    expect(out.summary).toBe('这是一段长简介。');
+  });
+
+  it('omits summary when absent', () => {
+    const out = render({ columns: ['id'], rows: [{ id: 1 }] }, 'json');
+    expect(JSON.parse(out).summary).toBeNull();
+  });
+});

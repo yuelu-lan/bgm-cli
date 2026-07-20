@@ -2,6 +2,14 @@ import type { Command } from 'commander';
 import type { Client } from '../api/client.js';
 import type { Renderable } from '../format/types.js';
 
+const SUBJECT_TYPE_LABEL: Record<number, string> = {
+  1: '书籍',
+  2: '动画',
+  3: '音乐',
+  4: '游戏',
+  6: '三次元',
+};
+
 export interface SearchArgs {
   keyword: string;
   sort?: 'match' | 'heat' | 'rank' | 'score';
@@ -30,18 +38,31 @@ export async function searchAction(client: Client, args: SearchArgs): Promise<Re
     offset: args.offset,
   });
 
-  const rows = result.data.map((s) => ({
-    id: s.id,
-    name: s.name,
-    date: s.date ?? '',
-    rating: s.rating?.score ?? '',
-  }));
+  const collectionTotal = (c?: { wish?: number; collect?: number; doing?: number; on_hold?: number; dropped?: number }) =>
+    (c?.wish ?? 0) + (c?.collect ?? 0) + (c?.doing ?? 0) + (c?.on_hold ?? 0) + (c?.dropped ?? 0);
+
+  const columns = ['id', 'type', 'name', 'date', 'score'];
+  if (args.sort === 'rank') columns.push('rank');
+  if (args.sort === 'heat') columns.push('collection');
+
+  const rows = result.data.map((s) => {
+    const row: Record<string, unknown> = {
+      id: s.id,
+      type: SUBJECT_TYPE_LABEL[s.type] ?? s.type,
+      name: s.name,
+      date: s.date ?? '',
+      score: s.rating?.score ?? '',
+    };
+    if (args.sort === 'rank') row.rank = s.rating?.rank ?? '';
+    if (args.sort === 'heat') row.collection = collectionTotal(s.collection);
+    return row;
+  });
 
   return {
     title: `搜索: ${args.keyword}`,
-    columns: ['id', 'name', 'date', 'rating'],
+    columns,
     rows,
-    meta: { total: result.total, limit: result.limit, offset: result.offset },
+    meta: { total: result.total, limit: result.limit, offset: result.offset, sort: args.sort ?? 'match' },
   };
 }
 

@@ -4,7 +4,7 @@ import type { Format, Renderable } from './types.js';
 export function render(r: Renderable, fmt: Format): string {
   if (fmt === 'json') {
     return JSON.stringify(
-      { title: r.title ?? null, meta: r.meta ?? null, rows: r.rows },
+      { title: r.title ?? null, meta: r.meta ?? null, rows: r.rows, summary: r.summary ?? null },
       null,
       2,
     );
@@ -29,6 +29,9 @@ function renderMarkdown(r: Renderable): string {
   const lines = [header, sep, ...body];
   if (r.meta && Object.keys(r.meta).length) {
     lines.push('', ...Object.entries(r.meta).map(([k, v]) => `> ${k}: ${v}`));
+  }
+  if (r.summary) {
+    lines.push('', r.summary);
   }
   return lines.join('\n');
 }
@@ -59,6 +62,9 @@ function renderText(r: Renderable): string {
     for (const [k, v] of Object.entries(r.meta)) {
       lines.push(`${k}: ${v}`);
     }
+  }
+  if (r.summary) {
+    lines.push('', r.summary);
   }
   return lines.join('\n');
 }

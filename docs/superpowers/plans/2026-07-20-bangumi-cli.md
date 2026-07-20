@@ -446,7 +446,6 @@ function renderText(r: Renderable): string {
     cells.map((cell, i) => pad(cell, widths[i])).join('  ');
 
   const lines: string[] = [];
-  if (r.title) lines.push(r.title, '');
   lines.push(formatRow(r.columns));
   lines.push(formatRow(widths.map((w) => '-'.repeat(w))));
   for (const row of r.rows) {

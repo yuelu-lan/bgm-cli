@@ -10,14 +10,15 @@ export async function subjectAction(client: Client, id: number): Promise<Rendera
     ['name_cn', s.name_cn ?? ''],
     ['date', s.date ?? ''],
     ['type', s.type],
-    ['rating', s.rating?.score ?? ''],
+    ['score', s.rating?.score ?? ''],
+    ['rank', s.rating?.rank ?? ''],
     ['rating_count', s.rating?.total ?? ''],
-    ['summary', s.summary ?? ''],
   ];
   return {
     title: s.name_cn || s.name,
     columns: ['key', 'value'],
     rows: fields.map(([key, value]) => ({ key, value })),
+    summary: s.summary || undefined,
   };
 }
 

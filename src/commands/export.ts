@@ -38,7 +38,7 @@ export async function exportSearchAction(client: Client, args: ExportArgs): Prom
     });
     total = result.total;
     for (const s of result.data) {
-      allRows.push({ id: s.id, name: s.name, date: s.date ?? '', rating: s.rating?.score ?? '' });
+      allRows.push({ id: s.id, name: s.name, date: s.date ?? '', score: s.rating?.score ?? '' });
       if (cap !== undefined && allRows.length >= cap) break;
     }
     offset += limit;
@@ -48,7 +48,7 @@ export async function exportSearchAction(client: Client, args: ExportArgs): Prom
 
   return {
     title: `导出: ${args.keyword}`,
-    columns: ['id', 'name', 'date', 'rating'],
+    columns: ['id', 'name', 'date', 'score'],
     rows: allRows,
     meta: { total, exported: allRows.length },
   };
