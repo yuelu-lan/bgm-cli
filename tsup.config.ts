@@ -6,6 +6,7 @@ export default defineConfig({
   target: 'node20',
   platform: 'node',
   bundling: true,
+  skipNodeModulesBundle: true,
   clean: true,
   sourcemap: false,
 });
