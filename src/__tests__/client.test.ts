@@ -71,6 +71,22 @@ describe('createClient.searchSubjects', () => {
       status: 0,
     });
   });
+
+  it('normalizes timeout to ApiError status 0 请求超时', async () => {
+    server.use(
+      http.post(`${BASE}/search/subjects`, async () => {
+        await new Promise((r) => setTimeout(r, 50));
+        return HttpResponse.json({ total: 0, limit: 10, offset: 0, data: [] });
+      }),
+    );
+    await expect(
+      createClient({ timeoutMs: 1 }).searchSubjects({ keyword: 'x' }),
+    ).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      message: '请求超时',
+    });
+  });
 });
 
 describe('createClient.getSubject', () => {
