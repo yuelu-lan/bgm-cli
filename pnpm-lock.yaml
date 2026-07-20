@@ -17,6 +17,9 @@ importers:
       string-width:
         specifier: ^7.1.0
         version: 7.2.0
+      undici:
+        specifier: ^8.7.0
+        version: 8.7.0
     devDependencies:
       '@types/node':
         specifier: ^20.11.0
@@ -1358,6 +1361,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha1-aR0ArzkJvpOn+qE75hs6W1DvEss=, tarball: http://r.npm.sankuai.com/undici-types/download/undici-types-6.21.0.tgz}
 
+  undici@8.7.0:
+    resolution: {integrity: sha1-BMWq4ds02YZ0iFiLRLjHSd7puu4=, tarball: http://r.npm.sankuai.com/undici/download/undici-8.7.0.tgz}
+    engines: {node: '>=22.19.0'}
+
   until-async@3.0.2:
     resolution: {integrity: sha1-RH8VMf3XuytMepiGm9saTCojhl8=, tarball: http://r.npm.sankuai.com/until-async/download/until-async-3.0.2.tgz}
 
@@ -2526,6 +2533,8 @@ snapshots:
   ufo@1.6.4: {}
 
   undici-types@6.21.0: {}
+
+  undici@8.7.0: {}
 
   until-async@3.0.2: {}
 

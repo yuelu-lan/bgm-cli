@@ -1,4 +1,16 @@
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import type { paths } from './types.js';
+
+let proxyConfigured = false;
+function ensureProxyDispatcher(): void {
+  if (proxyConfigured) return;
+  const proxyUrl =
+    process.env.HTTPS_PROXY ?? process.env.https_proxy ?? process.env.HTTP_PROXY ?? process.env.http_proxy;
+  if (proxyUrl) {
+    setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  }
+  proxyConfigured = true;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -54,6 +66,7 @@ export function createClient(opts: ClientOptions = {}) {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT;
 
   async function request(path: string, init: RequestInit): Promise<unknown> {
+    ensureProxyDispatcher();
     const headers = new Headers(init.headers);
     headers.set('User-Agent', ua);
     headers.set('Content-Type', 'application/json');

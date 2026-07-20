@@ -7,8 +7,12 @@
     "bgm": "dist/index.js"
   },
   "main": "./dist/index.js",
-  "files": ["dist"],
-  "engines": { "node": ">=20.0.0" },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -20,7 +24,8 @@
   "dependencies": {
     "commander": "^12.0.0",
     "env-paths": "^3.0.0",
-    "string-width": "^7.1.0"
+    "string-width": "^7.1.0",
+    "undici": "^8.7.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
