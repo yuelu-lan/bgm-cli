@@ -1,7 +1,7 @@
 # bangumi CLI 设计文档
 
 - 日期：2026-07-20
-- 技术栈：TypeScript + commander + tsup（ESM）
+- 技术栈：TypeScript + commander + tsup（ESM）+ undici（代理）
 - 包管理：pnpm，发布到 npm
 - Node 基线：`>=20`（原生 fetch / AbortController）
 
@@ -22,10 +22,11 @@
 
 | 维度 | 决策 |
 |---|---|
-| 构建 | tsup 打包成单文件 ESM（`"type": "module"`），`bin` 指向 `dist/index.js`；commander 作为 devDep（打包进 bundle，运行时不依赖） |
+| 构建 | tsup 打包 ESM（`"type": "module"`），`bin` 指向 `dist/index.js`；`skipNodeModulesBundle: true`（运行时依赖 external，不打包进 bundle）——因 esbuild 把 CJS 依赖（commander）bundle 进 ESM 时对 Node 内置模块的 require shim 会失败，故 commander/env-paths/string-width/undici 作为 dependencies，运行时从 node_modules 解析。`npm i -g` 会一并安装 |
 | API 封装 | `openapi-typescript` 从 `open-api/v0.yaml` 生成类型，运行时手写 fetch 封装 |
 | 认证 | 预留 token 配置（XDG 配置文件 + 环境变量），MVP 公开接口匿名可调 |
-| 配置存储 | `env-paths` 解析 XDG 跨平台路径，读写仍手写 |
+| 配置存储 | `env-paths` 解析跨平台路径，读写仍手写；env-paths v3 无 `type` 选项，`resolveConfigPath` 优先读 `XDG_CONFIG_HOME`（文件名统一 `bgm-cli-nodejs`），否则回退 `envPaths('bgm-cli').config` |
+| 代理 | 读 `HTTPS_PROXY`/`HTTP_PROXY`（大小写），用 undici `ProxyAgent` + `setGlobalDispatcher` 全局生效；未设则直连 |
 | 输出格式 | `--format json\|text\|markdown`，默认 text |
 | CJK 对齐 | text 表格用 `string-width` 计算显示宽度（全角字符对齐） |
 | 交互模式 | 纯参数式，不引入交互选择 |
@@ -46,7 +47,7 @@ src/
     export.ts         # bgm export <subcommand> 数据导出
     config.ts         # bgm config get/set
   api/
-    client.ts         # fetch 封装：baseURL、UA、token 注入、超时、错误归一化、分页
+    client.ts         # fetch 封装：baseURL、UA、token 注入、代理（undici）、超时、错误归一化、分页
     types.ts          # openapi-typescript 从 v0.yaml 生成（不手改）
   format/
     renderer.ts       # 三个渲染器 json/text/markdown，统一接口
@@ -69,19 +70,20 @@ index → commands → api
 - **命令产出「描述符」而非直接打印**：每个 command 解析参数 → 调 api → 把结果转成 `Renderable`，再交给 `renderer` 按全局 `--format` 输出。三个命令共用一套渲染逻辑，新增格式只改 format 层。
 - **类型生成不进版本库手改**：`api/types.ts` 由脚本从 yaml 生成，自定义展示类型放 format 层。
 - **token 作为 client 构造参数**：`createClient({ token })`，token 来源是 config；MVP 不强制 token，公开接口匿名可调，为后续收藏管理留口。
+- **client 懒加载**：`index.ts` 用 Proxy 包裹 client，`loadConfig + createClient` 延迟到 client 方法首次被调用（即 command action 执行）时才执行。这样 `--help`/`--format` 校验不依赖配置文件（损坏的配置不会阻塞 `--help`），且 `--config` 全局选项此时已能读到。
 
 ## 数据流
 
 以 `bgm search "孤独摇滚" --sort rank --type anime --limit 5 --format markdown` 为例：
 
-1. `index.ts` 解析全局选项 → `--format=markdown` 透传到 command context。
-2. `config.load()` 合并 XDG 配置 + env → `{ token?: string, ... }`。
-3. `createClient({ token })` 构造带 UA / baseURL 的 fetch 封装。
+1. `index.ts` 解析全局选项 → `--format=markdown` 透传到 command context。client 为 Proxy 懒加载，此时未构造。
+2. `search` command action 执行，首次访问 client 方法 → 触发 `config.load()` 合并 XDG 配置 + env → `{ token?, apiBase, ... }`。
+3. `createClient({ token, apiBase })` 构造带 UA / baseURL / 代理的 fetch 封装（仅首次，后续复用缓存）。
 4. `search` command 解析命令参数 → keyword / sort / type / limit。
-5. `api.client.searchSubjects({ keyword, sort, filter:{type}, limit })` → `POST /v0/search/subjects`，透传 UA +（token if present）。
+5. `api.client.searchSubjects({ keyword, sort, filter:{type}, limit, offset })` → `POST /v0/search/subjects?limit=<n>&offset=<n>`。**limit/offset 作为 URL query 参数**（bangumi API 不读 request body 里的 limit/offset），body 只放 keyword/sort/filter。透传 UA +（token if present）。
 6. 返回 `{ total, data: Subject[] }`（类型来自生成层）。
-7. command 把 `data` 映射成 `Renderable`。
-8. `renderer.render(renderable, "markdown")` → 输出 markdown 表格到 stdout。
+7. command 把 `data` 映射成 `Renderable`（search 动态列、subject 的 summary 分离见「组件与命令」）。
+8. `renderer.render(renderable, "markdown")` → 输出 markdown 表格到 stdout（若有 summary 则在表格下方追加段落）。
 
 ### 分页与导出
 
@@ -100,6 +102,7 @@ interface Renderable {
   columns: string[];
   rows: Record<string, unknown>[];  // key 对应 columns
   meta?: Record<string, unknown>;  // total 等附加信息
+  summary?: string;  // 表格下方的独立段落（如条目简介），text/markdown 在表格后输出，json 作为字段
 }
 type Format = 'json' | 'text' | 'markdown';
 function render(r: Renderable, fmt: Format): string;
@@ -116,6 +119,12 @@ function render(r: Renderable, fmt: Format): string;
 | `bgm export search <keyword>` | 批量导出搜索结果 | 同 search，去掉 `--limit`（全量翻页），可加 `--max` 上限保护 |
 | `bgm config` | 查看/设置配置（含 token） | `get <key>`, `set <key> <value>` |
 
+**search 输出列**：固定 `id / type(中文) / name / date / score`，按 `--sort` 动态追加：`sort=rank` 加 `rank` 列、`sort=heat` 加 `collection`（收藏总数）列、`sort=score`/`match` 不加。meta 含 `total / limit / offset / sort`。type 数字转中文（2→动画、1→书籍、3→音乐、4→游戏、6→三次元）。
+
+**subject 输出**：key/value 字段表，字段含 `id / name / name_cn / date / type / score / rank / rating_count`；`summary` 不进表格，作为 `Renderable.summary` 在表格下方独立成段全文显示（text/markdown），json 中作为 `summary` 字段。
+
+**export 输出列**：`id / name / date / score`（不加 type，批量导出保持简洁）。
+
 ### 全局选项（根命令）
 
 - `--format <json|text|markdown>`（默认 text）
@@ -124,7 +133,7 @@ function render(r: Renderable, fmt: Format): string;
 ### api/client.ts
 
 ```ts
-interface ClientOptions { token?: string; userAgent?: string; }
+interface ClientOptions { token?: string; userAgent?: string; apiBase?: string; timeoutMs?: number; }
 interface SearchParams {
   keyword: string;
   sort?: 'match' | 'heat' | 'rank' | 'score';
@@ -132,14 +141,15 @@ interface SearchParams {
   limit?: number; offset?: number;
 }
 const createClient = (opts: ClientOptions) => ({
-  searchSubjects(p: SearchParams): Promise<SearchResult>,  // POST /v0/search/subjects
+  searchSubjects(p: SearchParams): Promise<SearchResult>,  // POST /v0/search/subjects（limit/offset 走 query）
   getSubject(id: number): Promise<Subject>,                // GET /v0/subjects/:id
 });
 ```
 
 - `baseURL`：`https://api.bgm.tv/v0`
-- `User-Agent`：固定 `bgm-cli/<version> (https://github.com/<owner>/bgm-cli)`，`<version>` 取 package.json 版本，`<owner>` 为发布者 GitHub 账号（构建时注入）；遵循 bangumi UA 建议
+- `User-Agent`：固定 `bgm-cli/<version> (https://github.com/<owner>/bgm-cli)`，`<version>` 由 tsup `define` 从 package.json 注入为 `process.env.PACKAGE_VERSION`，`<owner>` 为发布者 GitHub 账号；遵循 bangumi UA 建议
 - `Authorization`：有 token 时注入 `Bearer <token>`
+- **代理**：模块初始化时读 `HTTPS_PROXY`/`HTTP_PROXY`（大小写），若有则 `setGlobalDispatcher(new ProxyAgent(url))`，全局生效一次；未设则直连
 - **超时**：`fetchWithTimeout` 用 `AbortController`，默认 10s，超时归一化为 `ApiError { status: 0, message: '请求超时' }`
 - 响应非 2xx → 抛 `ApiError { status, code?, message }`，由 command 层捕获转 stderr
 
@@ -151,13 +161,15 @@ const createClient = (opts: ClientOptions) => ({
 
 ### config/load.ts
 
-- 路径解析：`env-paths('bgm-cli', { type: 'config' })`，跨平台处理 XDG / Windows / macOS 标准目录
+- 路径解析：env-paths v3 无 `type` 选项，用 `envPaths('bgm-cli')`。`resolveConfigPath` 优先读 `XDG_CONFIG_HOME`（文件名统一 `bgm-cli-nodejs`，与 env-paths Linux 分支一致，避免设/不设 XDG 时读写不同文件），否则回退 `envPaths('bgm-cli').config`（macOS 为 `~/Library/Preferences/bgm-cli-nodejs`）
 - env 覆盖：`BGM_ACCESS_TOKEN` 覆盖 `token`，`BGM_API_BASE` 覆盖 baseURL（测试用）
 - 配置文件 schema（JSON）：
   ```json
   { "token": "string?", "apiBase": "string?" }
   ```
 - `bgm config set token xxx` 写回文件（token 字段）；`bgm config get token` 读取（敏感字段输出时打码，仅显示前 4 + 末 4 位）
+- 未知 key：`get` 宽松返回空，`set` 严格抛 `ConfigError`（写操作需防误写脏数据）
+- `loadConfig` 与 `saveConfig` 读取损坏文件均归一化为 `ConfigError('配置文件解析失败')`
 
 ## 错误处理
 
@@ -201,9 +213,10 @@ const createClient = (opts: ClientOptions) => ({
 
 ### 工具链
 
-- 构建：`tsup`（ESM 单文件打包）
+- 构建：`tsup`（ESM 打包，`skipNodeModulesBundle: true`，依赖 external）
 - 测试框架：`vitest`
 - HTTP mock：`msw`
+- 代理：`undici`（ProxyAgent），运行时依赖
 - 类型生成脚本：`pnpm gen:types`（`openapi-typescript` 读取 `open-api/v0.yaml`），类型漂移靠 CI 跑 `gen:types && git diff --exit-code` 守护
 - npm scripts：`build`(tsup) / `dev`(tsup --watch) / `test`(vitest run) / `typecheck`(tsc --noEmit) / `gen:types`
 
