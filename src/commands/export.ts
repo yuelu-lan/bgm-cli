@@ -25,6 +25,7 @@ export async function exportSearchAction(client: Client, args: ExportArgs): Prom
       : undefined;
 
   const allRows: Record<string, unknown>[] = [];
+  const allSubjects: unknown[] = [];
   let offset = 0;
   let total = 0;
 
@@ -39,6 +40,7 @@ export async function exportSearchAction(client: Client, args: ExportArgs): Prom
     total = result.total;
     for (const s of result.data) {
       allRows.push({ id: s.id, name: s.name, date: s.date ?? '', score: s.rating?.score ?? '' });
+      allSubjects.push(s);
       if (cap !== undefined && allRows.length >= cap) break;
     }
     offset += limit;
@@ -51,6 +53,7 @@ export async function exportSearchAction(client: Client, args: ExportArgs): Prom
     columns: ['id', 'name', 'date', 'score'],
     rows: allRows,
     meta: { total, exported: allRows.length },
+    raw: { total, data: allSubjects },
   };
 }
 

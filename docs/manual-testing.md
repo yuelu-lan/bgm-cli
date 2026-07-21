@@ -50,7 +50,7 @@ bgm search "孤独摇滚" --limit 5
 ```
 
 **预期**：
-- 输出表格，含 `id / name / date / rating` 四列
+- 输出表格，含 `id / type / name / date / score` 五列
 - 返回 5 条结果（`--limit 5` 生效）
 - 中日文全角字符列宽对齐正确（name 列对齐）
 - 表尾有 `total: <总数>` / `limit: 5` / `offset: 0` 元信息
@@ -63,9 +63,9 @@ bgm search "孤独摇滚" --limit 3 --format json
 ```
 
 **预期**：
-- 输出合法 JSON，结构为 `{ title, meta: {total,limit,offset}, rows: [...] }`
-- `rows` 含 3 条
-- 可管道：`bgm search "孤独摇滚" --limit 3 --format json | jq '.rows[0].name'`
+- 输出合法 JSON，结构为 bangumi API 原始 payload `{ total, limit, offset, data: [...] }`
+- `data` 含 3 条，每条含 `tags` / `infobox` / `images` / `platform` / `rating` 等完整字段
+- 可管道：`bgm search "孤独摇滚" --limit 3 --format json | jq '.data[0].name'`
 
 #### 1.3 Markdown 格式
 
@@ -74,7 +74,7 @@ bgm search "孤独摇滚" --limit 3 --format markdown
 ```
 
 **预期**：
-- 标准 markdown 表格：`| id | name | date | rating |` + 分隔行 `| --- | --- | --- | --- |` + 数据行
+- 标准 markdown 表格：`| id | type | name | date | score |` + 分隔行 + 数据行
 
 #### 1.4 排序
 
@@ -144,7 +144,7 @@ bgm subject 328609 --format markdown
 bgm subject 328609 --format json
 ```
 
-**预期**：`{ title, meta: null, rows: [{key, value}, ...] }` 结构。
+**预期**：输出单个完整 Subject 对象（`id` / `name` / `name_cn` / `date` / `type` / `rating` / `summary` / `tags` / `infobox` / `images` 等全部字段）。
 
 ---
 
@@ -158,8 +158,8 @@ bgm export search "孤独摇滚" --limit 10 --max 25 --format json
 
 **预期**：
 - 内部自动翻页（limit=10，翻 3 页凑满 25 条）
-- JSON `meta` 含 `total`（总数，如 294）和 `exported: 25`
-- `rows` 恰好 25 条
+- JSON 结构为 `{ total, data: [...] }`，`total` 是 API 真实总数（如 294），`data` 受 `--max` 截断恰好 25 条
+- 每条 subject 含完整字段
 
 #### 3.2 导出 text 格式
 
@@ -301,7 +301,7 @@ export HTTPS_PROXY=http://127.0.0.1:7897 HTTP_PROXY=http://127.0.0.1:7897
 #### 5.6 stdout / stderr 分离
 
 ```bash
-bgm search "孤独摇滚" --limit 2 --format json 2>/dev/null | jq '.rows | length'
+bgm search "孤独摇滚" --limit 2 --format json 2>/dev/null | jq '.data | length'
 ```
 
 **预期**：

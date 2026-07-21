@@ -2,14 +2,14 @@
 
 [![npm version](https://img.shields.io/npm/v/bgm-cli)](https://www.npmjs.com/package/bgm-cli)
 
-Bangumi（番组计划）命令行工具。搜索条目、查看详情、批量导出，支持 `json` / `text` / `markdown` 三种输出格式，适合交互查询与脚本管道。
+Bangumi（番组计划）命令行工具。搜索条目、查看详情、批量导出，支持 `json` / `text` / `markdown` 三种输出格式，适合交互查询、脚本管道与 AI agent 调用。
 
 ## 特性
 
 - 🔍 **搜索条目**：按关键词、类型、标签、排序搜索
 - 📋 **条目详情**：查看评分、排名、简介等完整信息
 - 📤 **批量导出**：自动翻页导出搜索结果，支持上限保护
-- 🎨 **三种输出**：`text`（默认，CJK 自动对齐表格）/ `json`（管道友好）/ `markdown`
+- 🎨 **三种输出**：`text`（默认，CJK 自动对齐表格）/ `json`（API 原始 payload，完整字段，agent 与管道友好）/ `markdown`
 - 🌐 **代理支持**：读取 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量
 - 🔧 **配置管理**：XDG 标准配置路径，token 脱敏显示
 
@@ -156,10 +156,16 @@ id      type  name                  date        score
 
 ### json
 
-机器可读，适合管道处理：
+输出 bangumi API 的完整原始 payload（含 `tags` / `infobox` / `images` / `platform` / `rating` 等全部字段），适合 AI agent 推理与管道处理。三种命令的 json 形态：
+
+- `search` → `{ total, limit, offset, data: Subject[] }`
+- `subject` → 单个完整 Subject 对象
+- `export` → `{ total, data: Subject[] }`（`total` 是 API 真实总数，`data` 受 `--max` 截断）
 
 ```bash
-bgm search "孤独摇滚" --limit 3 --format json | jq '.rows[0].name'
+bgm search "孤独摇滚" --limit 3 --format json | jq '.data[0].name'
+bgm subject 328609 --format json | jq '.tags[].name'
+bgm export search "孤独摇滚" --max 30 --format json | jq '.data | length'
 ```
 
 ### markdown
@@ -172,7 +178,7 @@ bgm search "孤独摇滚" --limit 3 --format json | jq '.rows[0].name'
 
 ```bash
 # stderr 丢弃，stdout 是纯净 JSON
-bgm search "孤独摇滚" --format json 2>/dev/null | jq '.rows | length'
+bgm search "孤独摇滚" --format json 2>/dev/null | jq '.data | length'
 ```
 
 ## 退出码
@@ -242,6 +248,16 @@ bgm --help
 - [undici](https://www.npmjs.com/package/undici) 代理支持
 - [string-width](https://www.npmjs.com/package/string-width) CJK 对齐
 - [env-paths](https://www.npmjs.com/package/env-paths) 跨平台配置路径
+
+## Agent / Skills
+
+`bgm-cli` 在 `skills/bgm-cli-operate/` 下提供面向 AI agent 的操作 skill，覆盖可执行检测、安装、token 配置、命令参考与故障排查。安装到 agent 环境：
+
+```bash
+npx skills add yuelu-lan/bgm-cli
+```
+
+Agent 应优先用 `--format json` 获取完整 API payload（`json` 输出 bangumi API 原始响应，含全部字段）。详见 [`skills/bgm-cli-operate/SKILL.md`](skills/bgm-cli-operate/SKILL.md)。
 
 ## License
 

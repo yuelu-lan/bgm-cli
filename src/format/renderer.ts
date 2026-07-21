@@ -3,11 +3,9 @@ import type { Format, Renderable } from './types.js';
 
 export function render(r: Renderable, fmt: Format): string {
   if (fmt === 'json') {
-    return JSON.stringify(
-      { title: r.title ?? null, meta: r.meta ?? null, rows: r.rows, summary: r.summary ?? null },
-      null,
-      2,
-    );
+    const payload =
+      r.raw ?? { title: r.title ?? null, meta: r.meta ?? null, rows: r.rows, summary: r.summary ?? null };
+    return JSON.stringify(payload, null, 2);
   }
   if (fmt === 'markdown') {
     return renderMarkdown(r);
