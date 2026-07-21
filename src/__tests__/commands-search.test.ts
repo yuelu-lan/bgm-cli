@@ -28,6 +28,7 @@ describe('searchAction', () => {
       limit: 10,
       offset: 0,
     });
+    expect(r.raw).toEqual({ total: 1, limit: 10, offset: 0, data: [{ id: 1, name: '孤独摇滚', type: 2, date: '2022-10-08', rating: { score: 8.5, rank: 23 } }] });
   });
 
   it('adds collection column on sort=heat', async () => {
@@ -71,5 +72,6 @@ describe('searchAction', () => {
     const r = await searchAction(client, { keyword: 'x', limit: 10, offset: 0 });
     expect(r.rows).toEqual([]);
     expect(r.meta?.total).toBe(0);
+    expect(r.raw).toEqual({ total: 0, limit: 10, offset: 0, data: [] });
   });
 });
