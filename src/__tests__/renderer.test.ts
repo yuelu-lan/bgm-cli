@@ -13,11 +13,24 @@ const sample: Renderable = {
 };
 
 describe('render json', () => {
-  it('outputs JSON with title meta rows', () => {
+  it('outputs raw payload when raw present', () => {
+    const r: Renderable = {
+      columns: ['id'],
+      rows: [{ id: 1 }],
+      raw: { total: 1, data: [{ id: 1, name: '孤独摇滚', tags: [{ name: '原创', count: 10 }] }] },
+    };
+    const out = JSON.parse(render(r, 'json'));
+    expect(out).toEqual(r.raw);
+    expect(out.total).toBe(1);
+    expect(out.data[0].tags[0].name).toBe('原创');
+  });
+
+  it('falls back to title meta rows summary when raw absent', () => {
     const out = JSON.parse(render(sample, 'json'));
     expect(out.title).toBe('搜索结果');
     expect(out.meta.total).toBe(2);
     expect(out.rows).toHaveLength(2);
+    expect(out.summary).toBeNull();
   });
 });
 
@@ -78,7 +91,8 @@ describe('render summary', () => {
     expect(out.endsWith('这是一段长简介。')).toBe(true);
   });
 
-  it('json includes summary field', () => {
+  // 无 raw 时 json 走兜底结构，summary 作为字段输出
+  it('json includes summary field when no raw', () => {
     const out = JSON.parse(render(r, 'json'));
     expect(out.summary).toBe('这是一段长简介。');
   });

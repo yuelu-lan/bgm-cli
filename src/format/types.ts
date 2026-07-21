@@ -4,6 +4,7 @@ export interface Renderable {
   rows: Record<string, unknown>[];
   meta?: Record<string, unknown>;
   summary?: string;
+  raw?: unknown;
 }
 
 export type Format = 'json' | 'text' | 'markdown';
