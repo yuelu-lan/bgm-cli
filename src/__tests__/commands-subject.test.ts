@@ -24,6 +24,15 @@ describe('subjectAction', () => {
     expect(fields.date).toBe('2022-10-08');
     expect(fields.summary).toBeUndefined();
     expect(r.summary).toBe('summary text');
+    expect(r.raw).toEqual({
+      id: 123,
+      name: '孤独摇滚',
+      name_cn: '孤独摇滚',
+      date: '2022-10-08',
+      summary: 'summary text',
+      rating: { score: 8.5, total: 5000, rank: 23 },
+      type: 2,
+    });
   });
 
   it('uses name_cn as title when present', async () => {

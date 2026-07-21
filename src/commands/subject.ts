@@ -19,6 +19,7 @@ export async function subjectAction(client: Client, id: number): Promise<Rendera
     columns: ['key', 'value'],
     rows: fields.map(([key, value]) => ({ key, value })),
     summary: s.summary || undefined,
+    raw: s,
   };
 }
 
