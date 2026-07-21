@@ -56,7 +56,7 @@ if (fmt === 'json') {
 
 | command | raw 值 | 结构 |
 |---|---|---|
-| search | `result`（client.searchSubjects 返回值） | `{total, data: Subject[]}` |
+| search | `result`（client.searchSubjects 返回值） | `{total, limit, offset, data: Subject[]}` |
 | subject | `s`（client.getSubject 返回值） | 单 Subject 对象 |
 | export | `{total, data: allSubjects}` | 聚合所有页的完整 Subject 数组 |
 
