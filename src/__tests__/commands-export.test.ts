@@ -17,6 +17,8 @@ describe('exportSearchAction', () => {
     expect(searchSubjects).toHaveBeenCalledTimes(3);
     expect(r.rows).toHaveLength(25);
     expect(r.meta?.total).toBe(25);
+    expect(r.raw).toEqual({ total: 25, data: expect.arrayContaining([...Array.from({ length: 25 }, (_, i) => expect.objectContaining({ id: i }))]) });
+    expect((r.raw as { data: unknown[] }).data).toHaveLength(25);
   });
 
   it('respects --max cap', async () => {
@@ -29,5 +31,6 @@ describe('exportSearchAction', () => {
     const client = { searchSubjects, getSubject: vi.fn() };
     const r = await exportSearchAction(client, { keyword: 'x', limit: 10, max: 25 });
     expect(r.rows).toHaveLength(25);
+    expect((r.raw as { data: unknown[] }).data).toHaveLength(25);
   });
 });
