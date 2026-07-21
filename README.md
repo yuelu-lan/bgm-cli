@@ -156,10 +156,10 @@ id      type  name                  date        score
 
 ### json
 
-机器可读，适合管道处理：
+输出 bangumi API 的完整原始 payload（含 `tags` / `infobox` / `images` / `platform` / `rating` 等全部字段），适合管道处理：
 
 ```bash
-bgm search "孤独摇滚" --limit 3 --format json | jq '.rows[0].name'
+bgm search "孤独摇滚" --limit 3 --format json | jq '.data[0].name'
 ```
 
 ### markdown
@@ -172,7 +172,7 @@ bgm search "孤独摇滚" --limit 3 --format json | jq '.rows[0].name'
 
 ```bash
 # stderr 丢弃，stdout 是纯净 JSON
-bgm search "孤独摇滚" --format json 2>/dev/null | jq '.rows | length'
+bgm search "孤独摇滚" --format json 2>/dev/null | jq '.data | length'
 ```
 
 ## 退出码
@@ -242,6 +242,16 @@ bgm --help
 - [undici](https://www.npmjs.com/package/undici) 代理支持
 - [string-width](https://www.npmjs.com/package/string-width) CJK 对齐
 - [env-paths](https://www.npmjs.com/package/env-paths) 跨平台配置路径
+
+## Agent / Skills
+
+`bgm-cli` ships an agent skill under `skills/bgm-cli-operate/` for AI agents that need to install and operate the CLI. Install it with:
+
+```bash
+npx skills add yuelu-lan/bgm-cli
+```
+
+The skill covers executable detection, installation, auth configuration, command reference, and troubleshooting. Agents should prefer `--format json` to get complete API payloads (the `json` format outputs the raw bangumi API response with all fields).
 
 ## License
 
